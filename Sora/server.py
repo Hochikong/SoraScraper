@@ -66,10 +66,11 @@ def get_page_text(url):   # 对url进行爬取新闻首页并获取页面文本�
     return result
 
 
-def write_today_and_2days_ago_data(allurls):   # 爬取当日和前两天的历史数据
+def write_today_and_2days_ago_data(allurls):   # 爬取当日和前两天的历史数据，目前判定前两天的只针对第一页
     # 根据新闻首页的文本提取全部新闻详情的soup对象
+    # page_template = 'http://www.wedengta.com/stockDetail/0001000050/news/%d.html'
     all_page_text = list(map(get_page_text, allurls['urls']))
-    all_raw_url = list(map(filter_and_add,list(map(get_urls, all_page_text))))  # 从每个股票的新闻页面提取新闻链接并处理
+    all_raw_url = list(map(filter_and_add, list(map(get_urls, all_page_text))))  # 从每个股票的新闻页面提取新闻链接并处理
     all_news_soup = list(map(filter_by_title, all_raw_url))  # 一个长度为stock_url数量的列表，每一个元素是股票的全部新闻的soup对象
 
     # 根据soup对象提取新闻详情,已经通过日期差过滤掉数据，但数据里还有些None值
@@ -79,7 +80,7 @@ def write_today_and_2days_ago_data(allurls):   # 爬取当日和前两天的历�
     target_news_detail = dict(zip(allurls['stock_id'], all_news_detail))
     # 根据id把一条一条的新闻详情写入数据库的stock_news表
     for stock_id in target_news_detail:
-        old_news = query_stocknews(collect_stock_news,stock_id)
+        old_news = query_stocknews(collect_stock_news, stock_id)
         if len(old_news) != 0:  # 如果有该股票的记录就update
             old_news.extend([msg for msg in target_news_detail[stock_id]])
             collect_stock_news.update_one({'stock_id': stock_id}, {'$set':{'news_content': old_news}})
