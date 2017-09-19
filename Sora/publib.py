@@ -99,7 +99,7 @@ def filter_by_title(urls):  # 根据条件把link_list进行过滤,返回一个�
 def filter_and_mark(url, wsoup=False):  # 对所有url进行过滤，凡是标题包含'行情回顾'的都记为No (被filter_by_title调用)
     cond = '行情回顾'
     try:
-        data = requests.get(url, timeout=10).text
+        data = requests.get(url, timeout=20).text
     except Exception as e:
         return "error:", e
     soup = BeautifulSoup(data, 'lxml')
@@ -128,12 +128,15 @@ def yet_another_filterbyt(urls):  # 一个简化版的filter_by_title
 
 def analysis_page(soupobj):  # 把每个页面的soup对象提取分别提取一些数据：标题、情绪、摘要、原文
     if count_day_delta(soupobj) <= 2:
-        title = soupobj.h3.get_text()
-        sentiment = get_sentiment(soupobj)
-        msg_source = get_data_and_source(soupobj)
-        # content = get_content(soupobj)
-        return {'title': title, 'sentiment': sentiment, 'msg_source': msg_source}
-        #'content': content}
+        try:   # 如果页面不带情绪，则放弃这条新闻
+            title = soupobj.h3.get_text()
+            sentiment = get_sentiment(soupobj)
+            msg_source = get_data_and_source(soupobj)
+            # content = get_content(soupobj)
+            return {'title': title, 'sentiment': sentiment, 'msg_source': msg_source}
+            #'content': content}
+        except Exception:
+            pass
     else:
         pass
 
