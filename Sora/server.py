@@ -1,7 +1,6 @@
 import rpyc
 import pymongo
 from bs4 import BeautifulSoup
-from multiprocessing import Pool
 from publib import *
 
 # ---------------------------------
