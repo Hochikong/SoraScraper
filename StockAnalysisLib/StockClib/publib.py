@@ -56,8 +56,11 @@ def get_data_and_source(soupobj):  # 提取来源和发布时间(以字符串存
     result = data.get_text()
     result = result.split(' ', 1)  # 提取出原始数据列表
 
-    msg_source_tmp = jieba.lcut(result[0])
-    msg_source = reduce(lambda x, y: x + y, msg_source_tmp[2:])  # 获得来源
+    if result[0] != '':  # 有些公告是没有来源的
+        msg_source_tmp = jieba.lcut(result[0])
+        msg_source = reduce(lambda x, y: x + y, msg_source_tmp[2:])  # 获得来源
+    else:
+        msg_source = 'None'
 
     msg_time = jieba.lcut(result[1])
     date_tmp = msg_time[3:8]
@@ -65,7 +68,7 @@ def get_data_and_source(soupobj):  # 提取来源和发布时间(以字符串存
     date = reduce(lambda x, y: x + y, date_tmp)  # 获得消息发布的日期
     time = reduce(lambda x, y: x + y, time_tmp)  # 获得消息发布的具体时间
 
-    return {'source': msg_source, 'data': date, 'time': time}
+    return {'source': msg_source, 'date': date, 'time': time}
 
 
 def get_content(soupobj):  # 返回页面文本内容
@@ -77,12 +80,6 @@ def get_content(soupobj):  # 返回页面文本内容
     return tmp  # 返回的是一个列表，每一个段落都带\r或者\rn,方便打印出来
 
 
-#def get_stock_number(page_text):  # 使用page_text转换为soup对象然后返回股票id
-#    soupobj = BeautifulSoup(page_text, 'lxml')
-#    block = soupobj.find(attrs={'class': 'num'})
-#    return block.get_text()
-
-
 def filter_and_add(urls):  # 把不带头部的新闻url添加头部
     base_url = 'http://www.wedengta.com'
     result = list(map(lambda x: base_url + x, urls))
@@ -91,45 +88,69 @@ def filter_and_add(urls):  # 把不带头部的新闻url添加头部
 
 def filter_by_title(urls):  # 根据条件把link_list进行过滤,返回一个包含所有页面soup对象的列表
     new_list = filter(lambda x: 'newsDetail' in x, urls)  # 筛选出包含新闻的url
-    result = list(map(filter_and_mark, new_list))  # 筛选出不含行情回顾的url
+    # result = list(map(filter_and_mark, new_list))  # 筛选出不含行情回顾的url
+    result = []
+    for i in new_list:
+        result.append(filter_and_mark(i, wsoup=True))
     result = list(filter(lambda x: x != 'No', result))
     return result
 
 
-def filter_and_mark(url):  # 对所有url进行过滤，凡是标题包含'行情回顾'的都记为No (被filter_by_title调用)
+def filter_and_mark(url, wsoup=False):  # 对所有url进行过滤，凡是标题包含'行情回顾'的都记为No (被filter_by_title调用)
     cond = '行情回顾'
     try:
-        data = requests.get(url, timeout=10).text
+        data = requests.get(url, timeout=20).text
     except Exception as e:
         return "error:", e
     soup = BeautifulSoup(data, 'lxml')
     if cond in soup.h3.get_text():
         return 'No'
     else:
-        return soup
+        if wsoup:
+            return soup
+        else:
+            return url
+
+
+def yet_another_filterbyt(urls):  # 一个简化版的filter_by_title
+    """
+    输入数据为delta里的url列表，仅返回url
+    :param urls: 股票ID后的url列表：data = {'601002':
+                                         ['http://www.wedengta.com/news/newsDetail/1/1505383522_10896657_9_1.html']}
+    :return: 过滤后的url列表
+    """
+    result = []
+    for i in urls:
+        result.append(filter_and_mark(i, wsoup=False))
+    result = list(filter(lambda x: x != 'No', result))
+    return result
 
 
 def analysis_page(soupobj):  # 把每个页面的soup对象提取分别提取一些数据：标题、情绪、摘要、原文
-    title = soupobj.h3.get_text()
-    sentiment = get_sentiment(soupobj)
-    msg_source = get_data_and_source(soupobj)
-    content = get_content(soupobj)
-    return {
-        'title': title,
-        'sentiment': sentiment,
-        'msg_source': msg_source,
-        'content': content}
+    if count_day_delta(soupobj) <= 2:
+        try:   # 如果页面不带情绪，则放弃这条新闻
+            title = soupobj.h3.get_text()
+            sentiment = get_sentiment(soupobj)
+            msg_source = get_data_and_source(soupobj)
+            # content = get_content(soupobj)
+            return {'title': title, 'sentiment': sentiment, 'msg_source': msg_source}
+            #'content': content}
+        except Exception:
+            pass
+    else:
+        pass
 
 
 def count_day_delta(soupobj):   # 通过获取当前页面的日期，和程序检测的当前时间计算时间差，根据时间差爬取近日的页面
     msg_source = get_data_and_source(soupobj)
-    raw_that_day = msg_source['data']
+    raw_that_day = msg_source['date']
     that_day = datetime.strptime(raw_that_day, '%Y-%m-%d')
     today = datetime.now()
     delta = (today - that_day).days
     return delta
 
 
-def get_url_delta(newurls, oldurls):   # 用旧的url列表来与新获得的url对比，获得最近更新的url用于爬取
+def get_url_delta(newurls, oldurls):   # 用旧的url列表来与新获得的url对比，获得最近更新的url用于爬取，如果两个url完全不同，则返回新的
     delta = list(set(newurls)-set(oldurls))
+    delta.sort(key=newurls.index)
     return delta
