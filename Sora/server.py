@@ -1,6 +1,7 @@
 import rpyc
 import pymongo
 from bs4 import BeautifulSoup
+from retrying import retry
 from publib import *
 
 # ---------------------------------
@@ -60,6 +61,7 @@ def query_allurls(collection):   # 查找stock_url表的全部url条目和对应
         return {'urls': urls, 'stock_id': id}
 
 
+@retry
 def get_page_text(url):   # 对url进行爬取新闻首页并获取页面文本，被query_today函数调用
     result = requests.get(url, timeout=20).text
     return result

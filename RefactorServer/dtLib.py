@@ -197,11 +197,35 @@ def analysisPage(soupobj):
 # ----------------------
 # 数据库读写函数
 
+# ======================
+# 对cache_url进行首次插入或更新
+
+
+def single_initinsert(stock, collection):
+    """
+    单条插入函数，被paraInsertCache调用
+    :param stock: 单条的ndata内部元素
+    :param collection: stock_url集合
+    :return:
+    """
+    collection.insert_one({'stock_id': stock['stock_id'], 'cache_urls': stock['cache']})
+
+
+def paraInsertCache(data, collection):
+    """
+    使用多线程对cache_urls进行插入
+    :param data: query的处理结果
+    :param collection: 指定的表
+    :return:
+    """
+    for stock in data:
+        pool.submit(single_initinsert, stock=stock, collection=collection)
+
 
 def single_update(stock, collection):
     """
-    单条更新函数，被paraUpdateCache调用
-    :param stock: 单条的ndata内部元素
+    单条更新函数，用于更新cache_urls
+    :param stock: 单条的afterfilter内部元素
     :param collection: stock_url集合
     :return:
     """
@@ -211,14 +235,15 @@ def single_update(stock, collection):
 def paraUpdateCache(data, collection):
     """
     使用多线程对cache_urls进行更新
-    :param data: query的处理结果
-    :param collection: 指定的表
+    :param data: afterfilter数据
+    :param collection: stock_url集合
     :return:
     """
     for stock in data:
         pool.submit(single_update, stock=stock, collection=collection)
 
-# -----------------------
+# =====================
+# 多线程新闻详情的插入与扩展
 
 
 def single_insert(stock, collection):
@@ -273,7 +298,7 @@ def paraExtend(data, collection):
         pool.submit(single_extend, stock=stock, collection=collection)
 
 # -----------------------
-# 并行爬取新闻
+# 多线程爬取新闻
 
 
 def single_getnews(stock):
@@ -307,4 +332,47 @@ def paraGetNews(data):
     """
     new_data = [pool.submit(single_getnews, stock=stock).result() for stock in data]
     return new_data
+
+
+# ----------------------
+# urls差值计算
+
+
+def get_url_delta(newurls, oldurls):
+    """
+    用旧的url列表来与新获得的url对比，获得最近更新的url用于爬取，如果两个url完全不同，则返回新的
+    :param newurls: 来自爬虫的新cache_urls
+    :param oldurls: 从数据库读取的cache_urls
+    :return: 一个包含最近更新的cache_urls列表
+    """
+    delta = list(set(newurls)-set(oldurls))
+    delta.sort(key=newurls.index)
+    return delta
+
+
+def paraCacheDiff(ndata):
+    """
+    通过对数据库中查找的每只股票的cache_urls与爬取的cache_urls进行对比，获取更新的url并爬取新闻
+    :param ndata: 经过generalCacheGet修改的qdata
+    :return: ndata
+    """
+    for stock in ndata:
+        delta = pool.submit(get_url_delta, newurls=stock['cache'], oldurls=stock['cache_urls']).result()
+        stock['cache_delta'] = delta
+    return ndata
+
+
+# -----------------------
+# 多线程url过滤
+
+
+def paraFilter(adddelta):
+    """
+    对adddelta中的cache_delta进行过滤，用于爬取新闻
+    :param adddelta: 来自paraCacheDiff处理过的ndata
+    :return: ndata
+    """
+    for stock in adddelta:
+        stock['ready_for_news'] = generalFilter(stock['cache_delta'], '_9_1', 'delete')
+    return adddelta
 
