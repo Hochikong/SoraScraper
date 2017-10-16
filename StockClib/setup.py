@@ -7,9 +7,9 @@
 
 from setuptools import setup, find_packages
 setup(
-    name='StockCLib',
+    name='StockClib',
     version='0.1',
-    package=find_packages(),
+    package=['StockClib'],
     include_package_data=True,
     install_requires=['neo4j-driver',
                       'bs4',
@@ -21,4 +21,5 @@ setup(
     description='The basic library for Sora',
     author='Hochikong',
     author_email='hochikong@foxmail.com',
+    url='http://github.com/hochikong'
 )
