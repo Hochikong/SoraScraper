@@ -11,10 +11,11 @@ setup(
     version='0.1',
     package=find_packages(),
     include_package_data=True,
-    install_requires=['pymongo',
-                      'neo4j-driver',
+    install_requires=['neo4j-driver',
                       'bs4',
-                      'jieba'
+                      'jieba',
+                      'retrying',
+                      'requests',
                       ],
 
     description='The basic library for Sora',

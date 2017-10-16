@@ -7,8 +7,6 @@
 
 import rpyc
 import pymongo
-from bs4 import BeautifulSoup
-from retrying import retry  # 爬虫基础函数不做重试操作
 from configparser import ConfigParser
 from .dtLib import *
 
