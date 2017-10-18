@@ -8,7 +8,7 @@
 import rpyc
 import pymongo
 from configparser import ConfigParser
-from .dtLib import *
+from stockclib.dtLib import *
 
 # --------------------------------
 # Set the constant and read the configuration file
